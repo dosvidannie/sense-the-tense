@@ -2086,8 +2086,8 @@ export default function Home() {
           <div className="draw-copy">
             <p className="eyebrow">A moment is waiting</p>
             <h1>
-              Карту {cardIndex + 1}
-              <span>можно открывать</span>
+              Карта {cardIndex + 1}
+              <span>готова открыться</span>
             </h1>
             <p>{drawIntros[cardIndex] ?? DRAW_INTROS[0]}</p>
             <button
