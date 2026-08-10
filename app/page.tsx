@@ -51,6 +51,22 @@ type AnswerRecord = {
   saved: boolean;
 };
 
+type SerialState = Partial<Record<TenseId, number>>;
+
+type ProgressStats = {
+  answered: number;
+  correct: number;
+};
+
+type SceneAction = {
+  base: string;
+  third: string;
+  ing: string;
+  past: string;
+  participle: string;
+  ruInfinitive: string;
+};
+
 const TENSES: { id: TenseId; label: string; group: string }[] = [
   { id: "present-simple", label: "Present Simple", group: "Present" },
   { id: "present-continuous", label: "Present Continuous", group: "Present" },
@@ -891,6 +907,372 @@ const DEFAULT_TENSES: TenseId[] = [
 
 const DEFAULT_TOPICS = TOPICS.map((topic) => topic.id);
 
+const DRAW_INTROS = [
+  "Не вспоминай правило заранее. Сначала почувствуй, как события расположены во времени.",
+  "Представь ситуацию как короткую сцену и выбери фразу, которая звучит естественно.",
+  "Сначала улови момент во времени — форма глагола придёт следом.",
+  "Не спеши искать формулу. Посмотри, что уже случилось, что происходит и что будет дальше.",
+  "Прислушайся к контексту: он подсказывает время лучше отдельного правила.",
+  "Один спокойный вдох, один сюжет, один выбор. Открой карту, когда будешь готова.",
+];
+
+const PEOPLE = [
+  { en: "Alex", ru: "Алекс" },
+  { en: "Maya", ru: "Майи" },
+  { en: "Daniel", ru: "Дэниела" },
+  { en: "Nora", ru: "Норы" },
+  { en: "Sam", ru: "Сэма" },
+  { en: "Lena", ru: "Лены" },
+  { en: "Chris", ru: "Криса" },
+  { en: "Eva", ru: "Евы" },
+  { en: "Leo", ru: "Лео" },
+  { en: "Mia", ru: "Мии" },
+];
+
+const DAYS = [
+  { en: "Monday", ru: "каждый понедельник" },
+  { en: "Tuesday", ru: "каждый вторник" },
+  { en: "Wednesday", ru: "каждую среду" },
+  { en: "Thursday", ru: "каждый четверг" },
+  { en: "Friday", ru: "каждую пятницу" },
+  { en: "Saturday", ru: "каждую субботу" },
+  { en: "Sunday", ru: "каждое воскресенье" },
+];
+
+const DURATIONS = [
+  { en: "forty minutes", ru: "сорок минут" },
+  { en: "two hours", ru: "два часа" },
+  { en: "three days", ru: "три дня" },
+  { en: "a week", ru: "неделю" },
+  { en: "two weeks", ru: "две недели" },
+  { en: "a month", ru: "месяц" },
+  { en: "six months", ru: "полгода" },
+  { en: "a year", ru: "год" },
+];
+
+const TIMES = ["8 a.m.", "10 a.m.", "noon", "2 p.m.", "4 p.m.", "7 p.m."];
+
+const DEADLINES = [
+  "tomorrow morning",
+  "Friday",
+  "the end of the week",
+  "next Monday",
+  "the end of the month",
+  "the next team meeting",
+];
+
+const SCENE_ACTIONS: Record<TopicId, SceneAction[]> = {
+  everyday: [
+    {
+      base: "organise the kitchen shelves",
+      third: "organises the kitchen shelves",
+      ing: "organising the kitchen shelves",
+      past: "organised the kitchen shelves",
+      participle: "organised the kitchen shelves",
+      ruInfinitive: "разобрать полки на кухне",
+    },
+    {
+      base: "sort the old photos",
+      third: "sorts the old photos",
+      ing: "sorting the old photos",
+      past: "sorted the old photos",
+      participle: "sorted the old photos",
+      ruInfinitive: "разобрать старые фотографии",
+    },
+    {
+      base: "learn a new recipe",
+      third: "learns a new recipe",
+      ing: "learning a new recipe",
+      past: "learned a new recipe",
+      participle: "learned a new recipe",
+      ruInfinitive: "освоить новый рецепт",
+    },
+    {
+      base: "redecorate the living room",
+      third: "redecorates the living room",
+      ing: "redecorating the living room",
+      past: "redecorated the living room",
+      participle: "redecorated the living room",
+      ruInfinitive: "обновить гостиную",
+    },
+  ],
+  work: [
+    {
+      base: "review the project notes",
+      third: "reviews the project notes",
+      ing: "reviewing the project notes",
+      past: "reviewed the project notes",
+      participle: "reviewed the project notes",
+      ruInfinitive: "проверить заметки по проекту",
+    },
+    {
+      base: "prepare the client presentation",
+      third: "prepares the client presentation",
+      ing: "preparing the client presentation",
+      past: "prepared the client presentation",
+      participle: "prepared the client presentation",
+      ruInfinitive: "подготовить презентацию для клиента",
+    },
+    {
+      base: "update the weekly report",
+      third: "updates the weekly report",
+      ing: "updating the weekly report",
+      past: "updated the weekly report",
+      participle: "updated the weekly report",
+      ruInfinitive: "обновить еженедельный отчёт",
+    },
+    {
+      base: "answer the team's messages",
+      third: "answers the team's messages",
+      ing: "answering the team's messages",
+      past: "answered the team's messages",
+      participle: "answered the team's messages",
+      ruInfinitive: "ответить на сообщения команды",
+    },
+  ],
+  people: [
+    {
+      base: "plan a birthday dinner",
+      third: "plans a birthday dinner",
+      ing: "planning a birthday dinner",
+      past: "planned a birthday dinner",
+      participle: "planned a birthday dinner",
+      ruInfinitive: "спланировать праздничный ужин",
+    },
+    {
+      base: "help a neighbour move",
+      third: "helps a neighbour move",
+      ing: "helping a neighbour move",
+      past: "helped a neighbour move",
+      participle: "helped a neighbour move",
+      ruInfinitive: "помочь соседу с переездом",
+    },
+    {
+      base: "write a thoughtful reply",
+      third: "writes a thoughtful reply",
+      ing: "writing a thoughtful reply",
+      past: "wrote a thoughtful reply",
+      participle: "written a thoughtful reply",
+      ruInfinitive: "написать вдумчивый ответ",
+    },
+    {
+      base: "organise a friends' reunion",
+      third: "organises a friends' reunion",
+      ing: "organising a friends' reunion",
+      past: "organised a friends' reunion",
+      participle: "organised a friends' reunion",
+      ruInfinitive: "организовать встречу друзей",
+    },
+  ],
+  travel: [
+    {
+      base: "plan a train journey",
+      third: "plans a train journey",
+      ing: "planning a train journey",
+      past: "planned a train journey",
+      participle: "planned a train journey",
+      ruInfinitive: "спланировать поездку на поезде",
+    },
+    {
+      base: "pack a small suitcase",
+      third: "packs a small suitcase",
+      ing: "packing a small suitcase",
+      past: "packed a small suitcase",
+      participle: "packed a small suitcase",
+      ruInfinitive: "собрать небольшой чемодан",
+    },
+    {
+      base: "compare the hotel options",
+      third: "compares the hotel options",
+      ing: "comparing the hotel options",
+      past: "compared the hotel options",
+      participle: "compared the hotel options",
+      ruInfinitive: "сравнить варианты отелей",
+    },
+    {
+      base: "choose a walking route",
+      third: "chooses a walking route",
+      ing: "choosing a walking route",
+      past: "chose a walking route",
+      participle: "chosen a walking route",
+      ruInfinitive: "выбрать маршрут для прогулки",
+    },
+  ],
+  digital: [
+    {
+      base: "back up the photo library",
+      third: "backs up the photo library",
+      ing: "backing up the photo library",
+      past: "backed up the photo library",
+      participle: "backed up the photo library",
+      ruInfinitive: "сделать резервную копию фотографий",
+    },
+    {
+      base: "update the online portfolio",
+      third: "updates the online portfolio",
+      ing: "updating the online portfolio",
+      past: "updated the online portfolio",
+      participle: "updated the online portfolio",
+      ruInfinitive: "обновить онлайн-портфолио",
+    },
+    {
+      base: "organise the browser tabs",
+      third: "organises the browser tabs",
+      ing: "organising the browser tabs",
+      past: "organised the browser tabs",
+      participle: "organised the browser tabs",
+      ruInfinitive: "разобрать вкладки в браузере",
+    },
+    {
+      base: "edit a short video",
+      third: "edits a short video",
+      ing: "editing a short video",
+      past: "edited a short video",
+      participle: "edited a short video",
+      ruInfinitive: "смонтировать короткое видео",
+    },
+  ],
+  plans: [
+    {
+      base: "practise a difficult conversation",
+      third: "practises a difficult conversation",
+      ing: "practising a difficult conversation",
+      past: "practised a difficult conversation",
+      participle: "practised a difficult conversation",
+      ruInfinitive: "отрепетировать сложный разговор",
+    },
+    {
+      base: "research a new course",
+      third: "researches a new course",
+      ing: "researching a new course",
+      past: "researched a new course",
+      participle: "researched a new course",
+      ruInfinitive: "изучить новый учебный курс",
+    },
+    {
+      base: "write down next month's goals",
+      third: "writes down next month's goals",
+      ing: "writing down next month's goals",
+      past: "wrote down next month's goals",
+      participle: "written down next month's goals",
+      ruInfinitive: "записать цели на следующий месяц",
+    },
+    {
+      base: "train for a morning run",
+      third: "trains for a morning run",
+      ing: "training for a morning run",
+      past: "trained for a morning run",
+      participle: "trained for a morning run",
+      ruInfinitive: "подготовиться к утренней пробежке",
+    },
+  ],
+};
+
+const GENERATED_TITLES: Record<TenseId, string[]> = {
+  "present-simple": ["The Familiar Pattern", "The Daily Compass", "The Regular Beat"],
+  "present-continuous": ["The Living Moment", "The Scene in Motion", "The Open Window"],
+  "present-perfect": ["The Present Echo", "The Fresh Result", "The Mark Left Behind"],
+  "present-perfect-continuous": ["The Unbroken Thread", "The Growing Story", "The Lasting Effort"],
+  "past-simple": ["The Finished Chapter", "The Clear Memory", "The Day Before"],
+  "past-continuous": ["The Interrupted Scene", "The Moving Background", "The Moment Within"],
+  "past-perfect": ["The Earlier Footstep", "The Hidden Beginning", "The First Event"],
+  "past-perfect-continuous": ["The Long Preparation", "The Earlier Process", "The Road Before"],
+  "future-simple": ["The New Decision", "The Quiet Prediction", "The Next Step"],
+  "future-continuous": ["The Future Scene", "The Hour Ahead", "The Coming Motion"],
+  "future-perfect": ["The Finished Horizon", "The Future Result", "The Completed Promise"],
+  "future-perfect-continuous": ["The Long Horizon", "The Future Milestone", "The Growing Distance"],
+};
+
+const TENSE_GUIDES: Record<
+  TenseId,
+  Pick<Card, "prompt" | "explanation" | "contrast" | "marker" | "hint">
+> = {
+  "present-simple": {
+    prompt: "Which sentence describes the regular pattern?",
+    explanation: "Present Simple описывает привычку или регулярно повторяющееся действие.",
+    contrast: "Continuous показывает процесс, а Present Perfect связывает прошлое действие с результатом сейчас.",
+    marker: "every week · usually · regularly",
+    hint: "Ищи привычку или устойчивый ритм.",
+  },
+  "present-continuous": {
+    prompt: "Which sentence belongs to this exact moment?",
+    explanation: "Present Continuous показывает действие, которое происходит прямо сейчас.",
+    contrast: "Present Simple превратил бы сцену в привычку, а Present Perfect — в уже полученный результат.",
+    marker: "right now · at the moment",
+    hint: "Представь, что действие видно прямо перед тобой.",
+  },
+  "present-perfect": {
+    prompt: "Which sentence connects the result to now?",
+    explanation: "Present Perfect связывает завершённое действие с его актуальным результатом.",
+    contrast: "Конкретное законченное время требует Past Simple, а Continuous переносит акцент на процесс.",
+    marker: "already · just · result now",
+    hint: "Действие закончено, но результат важен сейчас.",
+  },
+  "present-perfect-continuous": {
+    prompt: "Which sentence keeps the process going until now?",
+    explanation: "Present Perfect Continuous подчёркивает длительность процесса, начавшегося раньше и продолжающегося сейчас.",
+    contrast: "Since требует начальную точку, а Past Continuous оставляет действие в прошлом.",
+    marker: "for · since · all morning",
+    hint: "Процесс начался раньше и всё ещё продолжается.",
+  },
+  "past-simple": {
+    prompt: "Which sentence tells a finished past event?",
+    explanation: "Past Simple описывает завершённое действие в конкретный момент прошлого.",
+    contrast: "Present Perfect не сочетается с законченным временем вроде yesterday, а Continuous показывает процесс.",
+    marker: "yesterday · last night · ago",
+    hint: "Событие полностью осталось в прошлом.",
+  },
+  "past-continuous": {
+    prompt: "Which sentence shows the background action?",
+    explanation: "Past Continuous показывает процесс, внутри которого произошло более короткое событие.",
+    contrast: "Past Simple завершает действие целиком, а Present Perfect возвращает нас к настоящему.",
+    marker: "was doing · when",
+    hint: "Одно действие уже шло, когда случилось другое.",
+  },
+  "past-perfect": {
+    prompt: "Which sentence makes the earlier past event clear?",
+    explanation: "Past Perfect отмечает действие, которое завершилось раньше другого события в прошлом.",
+    contrast: "После had нужна третья форма глагола; Present Perfect не подходит к полностью прошлой истории.",
+    marker: "had already · before",
+    hint: "Определи, какое прошлое действие случилось первым.",
+  },
+  "past-perfect-continuous": {
+    prompt: "Which sentence highlights the earlier duration?",
+    explanation: "Past Perfect Continuous показывает длительный процесс до другого момента в прошлом.",
+    contrast: "Present Perfect связывает процесс с настоящим, а простая форма не передаёт накопленную длительность.",
+    marker: "had been doing · for · before",
+    hint: "Важна длительность процесса до прошлого события.",
+  },
+  "future-simple": {
+    prompt: "Which sentence gives a simple future prediction?",
+    explanation: "Future Simple подходит для прогноза, обещания или решения о будущем.",
+    contrast: "После will используется базовая форма глагола, а Present Perfect не работает с tomorrow.",
+    marker: "will · I think · probably",
+    hint: "Это прогноз или решение, а не процесс в конкретный час.",
+  },
+  "future-continuous": {
+    prompt: "Which sentence places the action inside a future moment?",
+    explanation: "Future Continuous показывает действие в процессе в определённый момент будущего.",
+    contrast: "После will be нужна форма с -ing; Future Perfect говорил бы о готовом результате.",
+    marker: "at this time tomorrow · will be doing",
+    hint: "Представь один кадр из будущего процесса.",
+  },
+  "future-perfect": {
+    prompt: "Which sentence shows completion before a future point?",
+    explanation: "Future Perfect показывает результат, который будет готов к определённому моменту в будущем.",
+    contrast: "После will have нужна третья форма глагола, а обычный Future Simple не выделяет готовый результат.",
+    marker: "by · will have done",
+    hint: "К будущему дедлайну действие уже завершится.",
+  },
+  "future-perfect-continuous": {
+    prompt: "Which sentence measures the process up to a future point?",
+    explanation: "Future Perfect Continuous измеряет длительность продолжающегося процесса к будущей точке.",
+    contrast: "Since не используется с длительностью, а Future Continuous не показывает, сколько времени накопилось.",
+    marker: "by · for · will have been doing",
+    hint: "Посмотри из будущего на длину продолжающегося процесса.",
+  },
+};
+
 function shuffle<T>(items: T[]): T[] {
   const result = [...items];
   for (let index = result.length - 1; index > 0; index -= 1) {
@@ -911,34 +1293,215 @@ function shuffleCardOptions(card: Card, roundId: string): DeckCard {
   };
 }
 
+function chooseBySerial<T>(items: T[], serial: number, divisor = 1): T {
+  return items[Math.floor(serial / divisor) % items.length];
+}
+
+function createGeneratedCard(
+  tense: TenseId,
+  topic: TopicId,
+  serial: number,
+): Card {
+  const person = chooseBySerial(PEOPLE, serial);
+  const actions = SCENE_ACTIONS[topic];
+  const action = chooseBySerial(actions, serial, PEOPLE.length);
+  const day = chooseBySerial(DAYS, serial, PEOPLE.length * actions.length);
+  const duration = chooseBySerial(DURATIONS, serial, actions.length);
+  const time = chooseBySerial(TIMES, serial, PEOPLE.length * 2);
+  const deadline = chooseBySerial(DEADLINES, serial, PEOPLE.length * actions.length);
+  const guide = TENSE_GUIDES[tense];
+  let situation = "";
+  let options: string[] = [];
+
+  switch (tense) {
+    case "present-simple":
+      situation = `У ${person.ru} есть регулярная привычка: ${action.ruInfinitive} ${day.ru}.`;
+      options = [
+        `${person.en} ${action.third} every ${day.en}.`,
+        `${person.en} is ${action.ing} every ${day.en} yesterday.`,
+        `${person.en} has ${action.participle} every ${day.en} last week.`,
+      ];
+      break;
+    case "present-continuous":
+      situation = `Прямо сейчас у ${person.ru} идёт одна задача — нужно ${action.ruInfinitive}.`;
+      options = [
+        `${person.en} is ${action.ing} right now.`,
+        `${person.en} ${action.third} right now at the moment.`,
+        `${person.en} has ${action.participle} right now yesterday.`,
+      ];
+      break;
+    case "present-perfect":
+      situation = `Задача уже выполнена: ${person.ru} удалось ${action.ruInfinitive}. Результат важен сейчас.`;
+      options = [
+        `${person.en} has already ${action.participle}, so the result is ready now.`,
+        `${person.en} has ${action.participle} yesterday, so the result is ready now.`,
+        `${person.en} has been ${action.ing} yesterday and finished now.`,
+      ];
+      break;
+    case "present-perfect-continuous":
+      situation = `${person.en} занимается одной задачей уже ${duration.ru}: нужно ${action.ruInfinitive}. Процесс всё ещё продолжается.`;
+      options = [
+        `${person.en} has been ${action.ing} for ${duration.en}.`,
+        `${person.en} is ${action.ing} since ${duration.en}.`,
+        `${person.en} has ${action.ing} for ${duration.en}.`,
+      ];
+      break;
+    case "past-simple":
+      situation = `Вчера у ${person.ru} была задача — ${action.ruInfinitive}, и она была полностью завершена.`;
+      options = [
+        `${person.en} ${action.past} yesterday evening.`,
+        `${person.en} has ${action.participle} yesterday evening.`,
+        `${person.en} is ${action.ing} yesterday evening.`,
+      ];
+      break;
+    case "past-continuous":
+      situation = `Вчера в ${time} у ${person.ru} шёл процесс: нужно было ${action.ruInfinitive}, когда пришло новое сообщение.`;
+      options = [
+        `${person.en} was ${action.ing} at ${time} yesterday when a message arrived.`,
+        `${person.en} ${action.past} at ${time} when a message was arriving.`,
+        `${person.en} has been ${action.ing} at ${time} yesterday.`,
+      ];
+      break;
+    case "past-perfect":
+      situation = `До начала встречи задача уже была готова: ${person.ru} удалось ${action.ruInfinitive}.`;
+      options = [
+        `${person.en} had already ${action.participle} before the meeting started.`,
+        `${person.en} has already ${action.participle} before the meeting started yesterday.`,
+        `${person.en} had ${action.base} before the meeting started.`,
+      ];
+      break;
+    case "past-perfect-continuous":
+      situation = `До начала встречи ${person.en} занимался задачей «${action.ruInfinitive}» уже ${duration.ru}.`;
+      options = [
+        `${person.en} had been ${action.ing} for ${duration.en} before the meeting started.`,
+        `${person.en} was ${action.ing} for ${duration.en} before the meeting had started.`,
+        `${person.en} has been ${action.ing} for ${duration.en} before the meeting started yesterday.`,
+      ];
+      break;
+    case "future-simple":
+      situation = `Ты делаешь простой прогноз: завтра ${person.en}, вероятно, решит ${action.ruInfinitive}.`;
+      options = [
+        `I think ${person.en} will ${action.base} tomorrow.`,
+        `I think ${person.en} will ${action.ing} tomorrow.`,
+        `I think ${person.en} has ${action.participle} tomorrow.`,
+      ];
+      break;
+    case "future-continuous":
+      situation = `Завтра в ${time} ${person.en} будет в процессе выполнения задачи: ${action.ruInfinitive}.`;
+      options = [
+        `At ${time} tomorrow, ${person.en} will be ${action.ing}.`,
+        `At ${time} tomorrow, ${person.en} will ${action.ing}.`,
+        `At ${time} tomorrow, ${person.en} has been ${action.ing}.`,
+      ];
+      break;
+    case "future-perfect":
+      situation = `К сроку «${deadline}» у ${person.ru} уже будет готов результат задачи: ${action.ruInfinitive}.`;
+      options = [
+        `By ${deadline}, ${person.en} will have ${action.participle}.`,
+        `By ${deadline}, ${person.en} will has ${action.participle}.`,
+        `${person.en} has ${action.participle} by ${deadline} tomorrow.`,
+      ];
+      break;
+    case "future-perfect-continuous":
+      situation = `К сроку «${deadline}» ${person.en} будет заниматься задачей «${action.ruInfinitive}» уже ${duration.ru}.`;
+      options = [
+        `By ${deadline}, ${person.en} will have been ${action.ing} for ${duration.en}.`,
+        `By ${deadline}, ${person.en} will be ${action.ing} since ${duration.en}.`,
+        `By ${deadline}, ${person.en} will have ${action.ing} for ${duration.en}.`,
+      ];
+      break;
+  }
+
+  return {
+    id: `generated-${tense}-${serial}`,
+    title: chooseBySerial(GENERATED_TITLES[tense], serial),
+    tense,
+    topic,
+    humorous: false,
+    situation,
+    options,
+    correctIndex: 0,
+    ...guide,
+  };
+}
+
+function toStoredCard(card: DeckCard): Card {
+  const { roundId: _roundId, ...storedCard } = card;
+  return storedCard;
+}
+
+function buildIntroSequence(count: number): string[] {
+  const sequence: string[] = [];
+  while (sequence.length < count) {
+    const batch = shuffle(DRAW_INTROS);
+    if (sequence.at(-1) === batch[0] && batch.length > 1) {
+      [batch[0], batch[1]] = [batch[1], batch[0]];
+    }
+    sequence.push(...batch);
+  }
+  return sequence.slice(0, count);
+}
+
 function buildDeck(
   count: number,
   tenseIds: TenseId[],
   topicIds: TopicId[],
-): DeckCard[] {
+  seenIds: string[],
+  repeatQueue: Card[],
+  serialState: SerialState,
+): { cards: DeckCard[]; nextSerialState: SerialState } {
   const tenseOrder = shuffle(tenseIds);
   const pools = new Map<TenseId, Card[]>();
+  const seen = new Set(seenIds);
+  const queuedIds = new Set(repeatQueue.map((card) => card.id));
+  const nextSerialState = { ...serialState };
 
   tenseOrder.forEach((tense) => {
-    const allowed = CARDS.filter((card) => card.tense === tense);
+    const savedForTense = repeatQueue.filter(
+      (card) => card.tense === tense && !seen.has(card.id),
+    );
+    const allowed = CARDS.filter(
+      (card) =>
+        card.tense === tense &&
+        !seen.has(card.id) &&
+        !queuedIds.has(card.id),
+    );
     const preferred = shuffle(
       allowed.filter((card) => topicIds.includes(card.topic)),
     );
     const remaining = shuffle(
       allowed.filter((card) => !topicIds.includes(card.topic)),
     );
-    pools.set(tense, [...preferred, ...remaining]);
+    pools.set(tense, [...shuffle(savedForTense), ...preferred, ...remaining]);
   });
 
   const deck: DeckCard[] = [];
+  const reservedIds = new Set<string>();
   for (let index = 0; index < count; index += 1) {
     const tense = tenseOrder[index % tenseOrder.length];
     const pool = pools.get(tense) ?? [];
-    const card = pool[Math.floor(index / tenseOrder.length) % pool.length];
+    let card = pool.shift();
+
+    while (card && reservedIds.has(card.id)) {
+      card = pool.shift();
+    }
+
+    if (!card) {
+      let serial = nextSerialState[tense] ?? 0;
+      const topic = topicIds[Math.floor(index / tenseOrder.length) % topicIds.length];
+      card = createGeneratedCard(tense, topic, serial);
+      while (seen.has(card.id) || reservedIds.has(card.id)) {
+        serial += 1;
+        card = createGeneratedCard(tense, topic, serial);
+      }
+      nextSerialState[tense] = serial + 1;
+    }
+
+    reservedIds.add(card.id);
     deck.push(shuffleCardOptions(card, `${card.id}-${index}-${Date.now()}`));
   }
 
-  return deck;
+  return { cards: deck, nextSerialState };
 }
 
 function getTenseLabel(id: TenseId) {
@@ -958,6 +1521,14 @@ export default function Home() {
   const [showHint, setShowHint] = useState(false);
   const [answers, setAnswers] = useState<AnswerRecord[]>([]);
   const [savedCurrent, setSavedCurrent] = useState(false);
+  const [seenCardIds, setSeenCardIds] = useState<string[]>([]);
+  const [repeatQueue, setRepeatQueue] = useState<Card[]>([]);
+  const [serialState, setSerialState] = useState<SerialState>({});
+  const [drawIntros, setDrawIntros] = useState<string[]>([]);
+  const [progressStats, setProgressStats] = useState<ProgressStats>({
+    answered: 0,
+    correct: 0,
+  });
   const [settingsLoaded, setSettingsLoaded] = useState(false);
 
   const currentCard = deck[cardIndex];
@@ -985,6 +1556,38 @@ export default function Home() {
         window.localStorage.removeItem("sense-the-tense-settings");
       }
     }
+
+    const savedProgress = window.localStorage.getItem(
+      "sense-the-tense-progress",
+    );
+    if (savedProgress) {
+      try {
+        const progress = JSON.parse(savedProgress) as {
+          seenCardIds?: string[];
+          repeatQueue?: Card[];
+          serialState?: SerialState;
+          stats?: ProgressStats;
+        };
+        if (Array.isArray(progress.seenCardIds)) {
+          setSeenCardIds(progress.seenCardIds);
+        }
+        if (Array.isArray(progress.repeatQueue)) {
+          setRepeatQueue(progress.repeatQueue);
+        }
+        if (progress.serialState && typeof progress.serialState === "object") {
+          setSerialState(progress.serialState);
+        }
+        if (
+          progress.stats &&
+          Number.isFinite(progress.stats.answered) &&
+          Number.isFinite(progress.stats.correct)
+        ) {
+          setProgressStats(progress.stats);
+        }
+      } catch {
+        window.localStorage.removeItem("sense-the-tense-progress");
+      }
+    }
     setSettingsLoaded(true);
   }, []);
 
@@ -999,6 +1602,25 @@ export default function Home() {
       }),
     );
   }, [selectedTenses, selectedTopics, cardCount, settingsLoaded]);
+
+  useEffect(() => {
+    if (!settingsLoaded) return;
+    window.localStorage.setItem(
+      "sense-the-tense-progress",
+      JSON.stringify({
+        seenCardIds,
+        repeatQueue,
+        serialState,
+        stats: progressStats,
+      }),
+    );
+  }, [
+    seenCardIds,
+    repeatQueue,
+    serialState,
+    progressStats,
+    settingsLoaded,
+  ]);
 
   const scoreByTense = useMemo(() => {
     const stats = new Map<TenseId, { correct: number; total: number }>();
@@ -1032,7 +1654,17 @@ export default function Home() {
 
   const startGame = () => {
     if (!selectedTenses.length || !selectedTopics.length) return;
-    setDeck(buildDeck(cardCount, selectedTenses, selectedTopics));
+    const builtDeck = buildDeck(
+      cardCount,
+      selectedTenses,
+      selectedTopics,
+      seenCardIds,
+      repeatQueue,
+      serialState,
+    );
+    setDeck(builtDeck.cards);
+    setSerialState(builtDeck.nextSerialState);
+    setDrawIntros(buildIntroSequence(cardCount));
     setCardIndex(0);
     setSelectedAnswer(null);
     setShowHint(false);
@@ -1057,6 +1689,30 @@ export default function Home() {
       saved: savedCurrent,
     };
     setAnswers((current) => [...current, nextRecord]);
+    setProgressStats((current) => ({
+      answered: current.answered + 1,
+      correct: current.correct + (currentCorrect ? 1 : 0),
+    }));
+
+    const storedCard = toStoredCard(currentCard);
+    if (savedCurrent) {
+      setSeenCardIds((current) =>
+        current.filter((id) => id !== currentCard.id),
+      );
+      setRepeatQueue((current) => [
+        ...current.filter((card) => card.id !== currentCard.id),
+        storedCard,
+      ]);
+    } else {
+      setSeenCardIds((current) =>
+        current.includes(currentCard.id)
+          ? current
+          : [...current, currentCard.id],
+      );
+      setRepeatQueue((current) =>
+        current.filter((card) => card.id !== currentCard.id),
+      );
+    }
 
     if (cardIndex === deck.length - 1) {
       setScreen("result");
@@ -1075,12 +1731,20 @@ export default function Home() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const repeatDifficult = () => {
-    const difficult = answers.filter((answer) => !answer.correct || answer.saved);
-    if (!difficult.length) return;
+  const repeatSaved = () => {
+    const saved = answers.filter((answer) => answer.saved);
+    if (!saved.length) return;
+    const uniqueSaved = [
+      ...new Map(saved.map((answer) => [answer.card.id, answer.card])).values(),
+    ];
     setDeck(
-      shuffle(difficult.map((answer, index) => shuffleCardOptions(answer.card, `repeat-${index}-${Date.now()}`))),
+      shuffle(
+        uniqueSaved.map((card, index) =>
+          shuffleCardOptions(card, `repeat-${index}-${Date.now()}`),
+        ),
+      ),
     );
+    setDrawIntros(buildIntroSequence(uniqueSaved.length));
     setCardIndex(0);
     setSelectedAnswer(null);
     setShowHint(false);
@@ -1091,9 +1755,10 @@ export default function Home() {
   };
 
   const completedCorrect = answers.filter((answer) => answer.correct).length;
-  const difficultCount = answers.filter(
-    (answer) => !answer.correct || answer.saved,
-  ).length;
+  const savedCount = answers.filter((answer) => answer.saved).length;
+  const lifetimeAccuracy = progressStats.answered
+    ? Math.round((progressStats.correct / progressStats.answered) * 100)
+    : 0;
 
   if (screen === "home") {
     return (
@@ -1119,8 +1784,8 @@ export default function Home() {
               <span>Sense the moment.</span>
             </h1>
             <p className="intro-copy">
-              Спокойная карточная практика английских времён через живые
-              ситуации, понятные объяснения и немного доброго юмора.
+              Карточная игра, которая помогает различать английские времена и
+              увереннее использовать их в речи.
             </p>
 
             <div className="deck-preview" aria-hidden="true">
@@ -1143,6 +1808,34 @@ export default function Home() {
             <div className="calm-note">
               <span className="calm-line" />
               No timer. No pressure. Just one card at a time.
+            </div>
+
+            <div className="journey-card">
+              <div className="journey-heading">
+                <div>
+                  <p className="step-label">Your journey</p>
+                  <strong>
+                    {progressStats.answered
+                      ? "Практика уже складывается"
+                      : "Твой путь начнётся с первой карты"}
+                  </strong>
+                </div>
+                <span className="journey-orbit" aria-hidden="true" />
+              </div>
+              <div className="journey-stats">
+                <div>
+                  <strong>{progressStats.answered}</strong>
+                  <span>cards explored</span>
+                </div>
+                <div>
+                  <strong>{lifetimeAccuracy}%</strong>
+                  <span>best matches</span>
+                </div>
+                <div>
+                  <strong>{repeatQueue.length}</strong>
+                  <span>saved to repeat</span>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -1270,7 +1963,11 @@ export default function Home() {
             <button
               className="start-button"
               type="button"
-              disabled={!selectedTenses.length || !selectedTopics.length}
+              disabled={
+                !settingsLoaded ||
+                !selectedTenses.length ||
+                !selectedTopics.length
+              }
               onClick={startGame}
             >
               <span>Start</span>
@@ -1324,8 +2021,8 @@ export default function Home() {
               <span>best matches</span>
             </div>
             <div>
-              <strong>{difficultCount}</strong>
-              <span>worth revisiting</span>
+              <strong>{savedCount}</strong>
+              <span>saved to repeat</span>
             </div>
           </div>
 
@@ -1355,10 +2052,10 @@ export default function Home() {
             <button
               className="secondary-action"
               type="button"
-              onClick={repeatDifficult}
-              disabled={!difficultCount}
+              onClick={repeatSaved}
+              disabled={!savedCount}
             >
-              Repeat difficult cards
+              Repeat saved cards
             </button>
             <button className="text-action" type="button" onClick={goHome}>
               Change settings
@@ -1393,10 +2090,7 @@ export default function Home() {
               Карта {cardIndex + 1}
               <span>готова открыться</span>
             </h1>
-            <p>
-              Не вспоминай правило заранее. Сначала почувствуй, как события
-              расположены во времени.
-            </p>
+            <p>{drawIntros[cardIndex] ?? DRAW_INTROS[0]}</p>
             <button
               className="primary-action open-action"
               type="button"
@@ -1426,7 +2120,7 @@ export default function Home() {
       )}
 
       {screen === "question" && currentCard && (
-        <section className="question-card">
+        <section className="question-card" data-card-id={currentCard.id}>
           <div className="card-topline">
             <span>{getTenseLabel(currentCard.tense)}</span>
             <span>{TOPICS.find((topic) => topic.id === currentCard.topic)?.label}</span>
