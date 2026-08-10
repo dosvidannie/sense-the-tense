@@ -2112,7 +2112,7 @@ export default function Home() {
               </span>
               <span className="tarot-title">
                 <strong>Sense</strong>
-                <small>the tense</small>
+                <small>the Tense</small>
               </span>
               <span className="tarot-roman">XII</span>
             </span>
