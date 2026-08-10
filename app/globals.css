@@ -879,15 +879,25 @@ input:focus-visible,
 }
 
 .tarot-title small {
+  position: relative;
+  z-index: 1;
   margin-top: 7px;
   color: #ffe0a3;
   font-family: var(--display);
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 500;
   letter-spacing: 0.2em;
-  text-shadow:
-    0 2px 12px rgba(17, 43, 44, 0.96),
-    0 0 3px rgba(17, 43, 44, 0.78);
+  text-shadow: 0 1px 2px rgba(17, 43, 44, 0.5);
+}
+
+.tarot-title small::before {
+  position: absolute;
+  z-index: -1;
+  border-radius: 999px;
+  background: rgba(17, 43, 44, 0.2);
+  content: "";
+  filter: blur(12px);
+  inset: -7px -16px;
 }
 
 .tarot-roman {
