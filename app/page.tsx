@@ -2110,8 +2110,10 @@ export default function Home() {
               <span className="tarot-moon">
                 <i />
               </span>
-              <strong>Sense</strong>
-              <small>the tense</small>
+              <span className="tarot-title">
+                <strong>Sense</strong>
+                <small>the tense</small>
+              </span>
               <span className="tarot-roman">XII</span>
             </span>
           </button>

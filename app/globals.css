@@ -316,7 +316,7 @@ input:focus-visible,
   align-items: center;
   color: var(--ink-soft);
   font-family: var(--display);
-  font-size: 13px;
+  font-size: 14px;
   font-style: italic;
 }
 
@@ -862,25 +862,31 @@ input:focus-visible,
   box-shadow: -15px 0 0 #213a3b;
 }
 
-.tarot-frame strong {
+.tarot-title {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+}
+
+.tarot-title strong {
   color: #fff8e9;
   font-family: var(--display);
   font-size: 35px;
   font-weight: 500;
+  line-height: 1;
   text-shadow: 0 2px 12px rgba(17, 43, 44, 0.9);
 }
 
-.tarot-frame small {
-  margin-top: 8px;
-  padding: 5px 8px 4px 11px;
-  border: 1px solid rgba(232, 205, 150, 0.48);
-  border-radius: 999px;
-  background: rgba(20, 48, 49, 0.92);
-  color: #f3d89f;
-  font-size: 11px;
+.tarot-title small {
+  margin-top: 7px;
+  color: #ffe0a3;
+  font-size: 13px;
   font-weight: 800;
-  letter-spacing: 0.24em;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+  letter-spacing: 0.2em;
+  text-shadow:
+    0 2px 12px rgba(17, 43, 44, 0.96),
+    0 0 3px rgba(17, 43, 44, 0.78);
   text-transform: uppercase;
 }
 
@@ -1548,8 +1554,12 @@ input:focus-visible,
     height: 39px;
   }
 
-  .tarot-frame strong {
+  .tarot-title strong {
     font-size: 28px;
+  }
+
+  .tarot-title small {
+    font-size: 12px;
   }
 
   .draw-copy h1 {
