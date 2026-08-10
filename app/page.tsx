@@ -243,7 +243,7 @@ const CARDS: Card[] = [
     topic: "everyday",
     humorous: true,
     situation:
-      "Ты потеряла ключи и до сих пор не можешь войти домой. Ключи, кажется, начали новую жизнь без тебя.",
+      "Ты потерял ключи и до сих пор не можешь войти домой. Ключи, кажется, начали новую жизнь без тебя.",
     prompt: "Which sentence connects the past event to the present result?",
     options: [
       "I've lost my keys, so I can't get into the flat.",
@@ -265,7 +265,7 @@ const CARDS: Card[] = [
     topic: "work",
     humorous: false,
     situation:
-      "Ты только что закончила презентацию и можешь наконец отправить её команде.",
+      "Ты только что закончил презентацию и можешь наконец отправить её команде.",
     prompt: "Which sentence focuses on the fresh result?",
     options: [
       "I've just finished the presentation, so I can send it now.",
@@ -287,7 +287,7 @@ const CARDS: Card[] = [
     topic: "travel",
     humorous: false,
     situation:
-      "В разговоре о путешествиях ты говоришь, что трижды была в Португалии, не называя конкретные даты.",
+      "В разговоре о путешествиях ты говоришь, что трижды был в Португалии, не называя конкретные даты.",
     prompt: "Which option describes life experience?",
     options: [
       "I've been to Portugal three times.",
@@ -322,7 +322,7 @@ const CARDS: Card[] = [
     contrast:
       "Yesterday требует Past Simple, а after since нужен момент начала, не длительность.",
     marker: "for forty minutes · since noon",
-    hint: "Ты начала ждать раньше и всё ещё ждёшь.",
+    hint: "Ты начал ждать раньше и всё ещё ждёшь.",
   },
   {
     id: "ppc-learning",
@@ -375,7 +375,7 @@ const CARDS: Card[] = [
     topic: "travel",
     humorous: true,
     situation:
-      "Вчера ты купила кофе перед поездом, отвлеклась на красивую пенку и в итоге опоздала.",
+      "Вчера ты купил кофе перед поездом, отвлёкся на красивую пенку и в итоге опоздал.",
     prompt: "Which sentence tells a finished past story?",
     options: [
       "I bought a coffee and missed my train yesterday.",
@@ -397,7 +397,7 @@ const CARDS: Card[] = [
     topic: "digital",
     humorous: false,
     situation:
-      "Ты написала коллеге вчера вечером и получила ответ через час.",
+      "Ты написал коллеге вчера вечером и получил ответ через час.",
     prompt: "Which option gives a clear completed sequence?",
     options: [
       "I messaged my colleague last night, and she replied an hour later.",
@@ -419,7 +419,7 @@ const CARDS: Card[] = [
     topic: "people",
     humorous: false,
     situation:
-      "Ты рассказываешь, где впервые встретила лучшую подругу: это произошло в университете.",
+      "Ты рассказываешь, где впервые встретил лучшую подругу: это произошло в университете.",
     prompt: "Which sentence locates the event in a finished past period?",
     options: [
       "I met my best friend when we were at university.",
@@ -441,7 +441,7 @@ const CARDS: Card[] = [
     topic: "digital",
     humorous: true,
     situation:
-      "Ты проводила серьёзную онлайн-презентацию, когда случайно включился фильтр с кошачьими ушами.",
+      "Ты проводил серьёзную онлайн-презентацию, когда случайно включился фильтр с кошачьими ушами.",
     prompt: "Which sentence sets the scene for the interruption?",
     options: [
       "I was giving a presentation when the cat filter suddenly appeared.",
@@ -463,7 +463,7 @@ const CARDS: Card[] = [
     topic: "everyday",
     humorous: false,
     situation:
-      "Ты готовила ужин, когда сработала пожарная сигнализация.",
+      "Ты готовил ужин, когда сработала пожарная сигнализация.",
     prompt: "Which option describes the background action?",
     options: [
       "I was cooking dinner when the fire alarm went off.",
@@ -485,7 +485,7 @@ const CARDS: Card[] = [
     topic: "people",
     humorous: false,
     situation:
-      "Вчера в восемь ты готовила, а твоя сестра разговаривала по телефону — оба действия шли одновременно.",
+      "Вчера в восемь ты готовил, а твоя сестра разговаривала по телефону — оба действия шли одновременно.",
     prompt: "Which sentence shows two parallel actions?",
     options: [
       "While I was cooking, my sister was talking on the phone.",
@@ -551,7 +551,7 @@ const CARDS: Card[] = [
     topic: "work",
     humorous: false,
     situation:
-      "Когда ты открыла почту утром, менеджер уже отправил окончательное решение.",
+      "Когда ты открыл почту утром, менеджер уже отправил окончательное решение.",
     prompt: "Which sentence separates the two past moments?",
     options: [
       "When I checked my inbox, the manager had already sent the final decision.",
@@ -560,7 +560,7 @@ const CARDS: Card[] = [
     ],
     correctIndex: 0,
     explanation:
-      "Отправка произошла до того, как ты проверила почту, поэтому более раннее действие стоит в Past Perfect.",
+      "Отправка произошла до того, как ты проверил почту, поэтому более раннее действие стоит в Past Perfect.",
     contrast:
       "Во втором варианте Past Perfect ошибочно относится к более поздней проверке, а третий смешивает настоящее и прошлое.",
     marker: "had already · when",
@@ -573,7 +573,7 @@ const CARDS: Card[] = [
     topic: "work",
     humorous: true,
     situation:
-      "Ты работала два часа, прежде чем поняла, что ноутбук не подключён к розетке и держится на одном оптимизме.",
+      "Ты работал два часа, прежде чем понял, что ноутбук не подключён к розетке и держится на одном оптимизме.",
     prompt: "Which sentence highlights the duration before a past discovery?",
     options: [
       "I'd been working for two hours before I realised the laptop wasn't plugged in.",
@@ -771,7 +771,7 @@ const CARDS: Card[] = [
     topic: "work",
     humorous: false,
     situation:
-      "Ты уверена, что закончишь отчёт к пятнице.",
+      "Ты уверен, что закончишь отчёт к пятнице.",
     prompt: "Which sentence looks back from the Friday deadline?",
     options: [
       "I'll have finished the report by Friday.",
@@ -837,7 +837,7 @@ const CARDS: Card[] = [
     topic: "work",
     humorous: false,
     situation:
-      "В июне исполнится пять лет с тех пор, как ты начала работать в компании.",
+      "В июне исполнится пять лет с тех пор, как ты начал работать в компании.",
     prompt: "Which sentence measures the process up to a future point?",
     options: [
       "By June, I'll have been working here for five years.",
@@ -913,7 +913,7 @@ const DRAW_INTROS = [
   "Сначала улови момент во времени — форма глагола придёт следом.",
   "Не спеши искать формулу. Посмотри, что уже случилось, что происходит и что будет дальше.",
   "Прислушайся к контексту: он подсказывает время лучше отдельного правила.",
-  "Один спокойный вдох, один сюжет, один выбор. Открой карту, когда будешь готова.",
+  "Один спокойный вдох, один сюжет, один выбор. Открой карту, когда будешь готов.",
 ];
 
 const PEOPLE = [
@@ -1773,7 +1773,6 @@ export default function Home() {
             </span>
             <span>Sense the Tense</span>
           </a>
-          <span className="header-note">English tenses · B1–B2</span>
         </header>
 
         <section className="home-grid" id="top">
@@ -2002,7 +2001,7 @@ export default function Home() {
             <small>%</small>
           </div>
           <p className="eyebrow">Your reading is complete</p>
-          <h1>Ты прошла всю колоду</h1>
+          <h1>Вся колода пройдена</h1>
           <p className="result-lead">
             {percentage >= 80
               ? "Временные линии складываются очень уверенно."
@@ -2087,8 +2086,8 @@ export default function Home() {
           <div className="draw-copy">
             <p className="eyebrow">A moment is waiting</p>
             <h1>
-              Карта {cardIndex + 1}
-              <span>готова открыться</span>
+              Карту {cardIndex + 1}
+              <span>можно открывать</span>
             </h1>
             <p>{drawIntros[cardIndex] ?? DRAW_INTROS[0]}</p>
             <button

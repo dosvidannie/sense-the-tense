@@ -863,16 +863,24 @@ input:focus-visible,
 }
 
 .tarot-frame strong {
+  color: #fff8e9;
   font-family: var(--display);
   font-size: 35px;
   font-weight: 500;
+  text-shadow: 0 2px 12px rgba(17, 43, 44, 0.9);
 }
 
 .tarot-frame small {
-  margin-top: 4px;
-  color: rgba(245, 239, 228, 0.55);
-  font-size: 9px;
-  letter-spacing: 0.35em;
+  margin-top: 8px;
+  padding: 5px 8px 4px 11px;
+  border: 1px solid rgba(232, 205, 150, 0.48);
+  border-radius: 999px;
+  background: rgba(20, 48, 49, 0.92);
+  color: #f3d89f;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.24em;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
   text-transform: uppercase;
 }
 
