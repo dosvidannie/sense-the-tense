@@ -881,13 +881,13 @@ input:focus-visible,
 .tarot-title small {
   margin-top: 7px;
   color: #ffe0a3;
+  font-family: var(--display);
   font-size: 13px;
   font-weight: 800;
   letter-spacing: 0.2em;
   text-shadow:
     0 2px 12px rgba(17, 43, 44, 0.96),
     0 0 3px rgba(17, 43, 44, 0.78);
-  text-transform: uppercase;
 }
 
 .tarot-roman {
