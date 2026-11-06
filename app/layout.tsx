@@ -16,7 +16,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: "Sense the Tense — English Tenses Practice",
     description:
-      "A calm card game for practising all 12 English tenses through real-life situations.",
+      "A calm game for practising all 12 English tenses through cards, error-spotting, and real-life situations.",
     icons: {
       icon: "/favicon.svg",
       shortcut: "/favicon.svg",
@@ -29,7 +29,7 @@ export async function generateMetadata(): Promise<Metadata> {
           url: previewUrl,
           width: 1792,
           height: 933,
-          alt: "Sense the Tense — a calm English tenses card game",
+          alt: "Sense the Tense — a calm English tenses practice game",
         },
       ],
     },

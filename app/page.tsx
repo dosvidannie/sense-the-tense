@@ -1,29 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { dueReviews, recordReview, type ReviewHistory } from "./review-schedule";
-
-type TenseId =
-  | "present-simple"
-  | "present-continuous"
-  | "present-perfect"
-  | "present-perfect-continuous"
-  | "past-simple"
-  | "past-continuous"
-  | "past-perfect"
-  | "past-perfect-continuous"
-  | "future-simple"
-  | "future-continuous"
-  | "future-perfect"
-  | "future-perfect-continuous";
-
-type TopicId =
-  | "everyday"
-  | "work"
-  | "people"
-  | "travel"
-  | "digital"
-  | "plans";
+import type { ModeId, TenseId, TopicId } from "./game-types";
+import { recentAttempts, summarizeTenses, trimAttemptHistory, type AttemptEvent } from "./practice-analytics";
+import { buildSpotDeck, type SpotExercise } from "./spot-error";
 
 type Card = {
   id: string;
@@ -49,6 +30,14 @@ type AnswerRecord = {
   card: DeckCard;
   correct: boolean;
   selectedIndex: number;
+  saved: boolean;
+};
+
+type SpotAnswerRecord = {
+  exercise: SpotExercise;
+  correct: boolean;
+  skipped: boolean;
+  errorStage?: "find" | "replace";
   saved: boolean;
 };
 
@@ -1427,7 +1416,8 @@ function createGeneratedCard(
 }
 
 function toStoredCard(card: DeckCard): Card {
-  const { roundId: _roundId, ...storedCard } = card;
+  const storedCard = { ...card };
+  delete (storedCard as Partial<DeckCard>).roundId;
   return storedCard;
 }
 
@@ -1518,9 +1508,10 @@ function getTenseLabel(id: TenseId) {
 }
 
 export default function Home() {
-  const [screen, setScreen] = useState<"home" | "deck" | "question" | "result">(
+  const [screen, setScreen] = useState<"home" | "setup" | "deck" | "question" | "spot" | "result">(
     "home",
   );
+  const [selectedMode, setSelectedMode] = useState<"cards" | "spot-error">("cards");
   const [selectedTenses, setSelectedTenses] = useState<TenseId[]>(DEFAULT_TENSES);
   const [selectedTopics, setSelectedTopics] = useState<TopicId[]>(DEFAULT_TOPICS);
   const [cardCount, setCardCount] = useState(8);
@@ -1529,10 +1520,21 @@ export default function Home() {
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [showHint, setShowHint] = useState(false);
   const [answers, setAnswers] = useState<AnswerRecord[]>([]);
+  const [spotAnswers, setSpotAnswers] = useState<SpotAnswerRecord[]>([]);
+  const [spotDeck, setSpotDeck] = useState<SpotExercise[]>([]);
+  const [spotStage, setSpotStage] = useState<"find" | "replace" | "revealed">("find");
+  const [spotFirstMistake, setSpotFirstMistake] = useState(false);
+  const [spotErrorStage, setSpotErrorStage] = useState<"find" | "replace" | undefined>();
+  const [spotSelectedPart, setSpotSelectedPart] = useState<number | null>(null);
+  const [spotWrongOptions, setSpotWrongOptions] = useState<string[]>([]);
+  const [spotFeedback, setSpotFeedback] = useState("");
   const [savedCurrent, setSavedCurrent] = useState(false);
   const [seenCardIds, setSeenCardIds] = useState<string[]>([]);
   const [repeatQueue, setRepeatQueue] = useState<Card[]>([]);
   const [reviewHistory, setReviewHistory] = useState<ReviewHistory<Card>>({});
+  const [spotReviewHistory, setSpotReviewHistory] = useState<ReviewHistory<SpotExercise>>({});
+  const [spotSerialState, setSpotSerialState] = useState<SerialState>({});
+  const [attemptHistory, setAttemptHistory] = useState<AttemptEvent[]>([]);
   const [serialState, setSerialState] = useState<SerialState>({});
   const [drawIntros, setDrawIntros] = useState<string[]>([]);
   const [progressStats, setProgressStats] = useState<ProgressStats>({
@@ -1540,14 +1542,20 @@ export default function Home() {
     correct: 0,
   });
   const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [weekNow, setWeekNow] = useState(() => Date.now());
+  const committedRoundIds = useRef(new Set<string>());
 
   const currentCard = deck[cardIndex];
+  const currentSpot = spotDeck[cardIndex];
   const currentCorrect =
     selectedAnswer !== null && currentCard
       ? selectedAnswer === currentCard.correctIndex
       : false;
-  const progress = deck.length ? ((cardIndex + 1) / deck.length) * 100 : 0;
+  const activeDeckLength = selectedMode === "cards" ? deck.length : spotDeck.length;
+  const progress = activeDeckLength ? ((cardIndex + 1) / activeDeckLength) * 100 : 0;
 
+  // Hydration reads the browser's local progress before the first save.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     const saved = window.localStorage.getItem("sense-the-tense-settings");
     if (saved) {
@@ -1578,6 +1586,9 @@ export default function Home() {
           reviewHistory?: ReviewHistory<Card>;
           serialState?: SerialState;
           stats?: ProgressStats;
+          spotReviewHistory?: ReviewHistory<SpotExercise>;
+          spotSerialState?: SerialState;
+          attempts?: AttemptEvent[];
         };
         if (Array.isArray(progress.seenCardIds)) {
           setSeenCardIds(progress.seenCardIds);
@@ -1599,6 +1610,17 @@ export default function Home() {
         if (progress.serialState && typeof progress.serialState === "object") {
           setSerialState(progress.serialState);
         }
+        if (progress.spotReviewHistory && typeof progress.spotReviewHistory === "object") {
+          setSpotReviewHistory(progress.spotReviewHistory);
+        }
+        if (progress.spotSerialState && typeof progress.spotSerialState === "object") {
+          setSpotSerialState(progress.spotSerialState);
+        }
+        if (Array.isArray(progress.attempts)) {
+          setAttemptHistory(trimAttemptHistory(progress.attempts.filter(
+            (event) => event && typeof event.id === "string" && typeof event.tense === "string",
+          ), Date.now()));
+        }
         if (
           progress.stats &&
           Number.isFinite(progress.stats.answered) &&
@@ -1611,7 +1633,9 @@ export default function Home() {
       }
     }
     setSettingsLoaded(true);
+    setWeekNow(Date.now());
   }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
     if (!settingsLoaded) return;
@@ -1635,6 +1659,9 @@ export default function Home() {
         reviewHistory,
         serialState,
         stats: progressStats,
+        spotReviewHistory,
+        spotSerialState,
+        attempts: attemptHistory,
       }),
     );
   }, [
@@ -1643,22 +1670,11 @@ export default function Home() {
     reviewHistory,
     serialState,
     progressStats,
+    spotReviewHistory,
+    spotSerialState,
+    attemptHistory,
     settingsLoaded,
   ]);
-
-  const scoreByTense = useMemo(() => {
-    const stats = new Map<TenseId, { correct: number; total: number }>();
-    answers.forEach((answer) => {
-      const current = stats.get(answer.card.tense) ?? { correct: 0, total: 0 };
-      stats.set(answer.card.tense, {
-        correct: current.correct + (answer.correct ? 1 : 0),
-        total: current.total + 1,
-      });
-    });
-    return [...stats.entries()].sort(
-      (a, b) => b[1].correct / b[1].total - a[1].correct / a[1].total,
-    );
-  }, [answers]);
 
   const toggleTense = (id: TenseId) => {
     setSelectedTenses((current) =>
@@ -1678,6 +1694,25 @@ export default function Home() {
 
   const startGame = () => {
     if (!selectedTenses.length || !selectedTopics.length) return;
+    committedRoundIds.current = new Set();
+    if (selectedMode === "spot-error") {
+      const built = buildSpotDeck(cardCount, selectedTenses, selectedTopics, spotReviewHistory, spotSerialState, Date.now());
+      setSpotDeck(built.exercises);
+      setSpotSerialState(built.nextSerialState);
+      setSpotAnswers([]);
+      setCardIndex(0);
+      setSpotStage("find");
+      setSpotFirstMistake(false);
+      setSpotErrorStage(undefined);
+      setSpotSelectedPart(null);
+      setSpotWrongOptions([]);
+      setSpotFeedback("");
+      setShowHint(false);
+      setSavedCurrent(false);
+      setScreen("spot");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
     const builtDeck = buildDeck(
       cardCount,
       selectedTenses,
@@ -1705,9 +1740,10 @@ export default function Home() {
     setSelectedAnswer(index);
   };
 
-  const moveNext = () => {
-    if (selectedAnswer === null || !currentCard) return;
-
+  const commitCardAnswer = (): boolean => {
+    if (selectedAnswer === null || !currentCard) return false;
+    if (committedRoundIds.current.has(currentCard.roundId)) return false;
+    committedRoundIds.current.add(currentCard.roundId);
     const nextRecord: AnswerRecord = {
       card: currentCard,
       correct: currentCorrect,
@@ -1715,6 +1751,11 @@ export default function Home() {
       saved: savedCurrent,
     };
     setAnswers((current) => [...current, nextRecord]);
+    setAttemptHistory((current) => trimAttemptHistory([...current, {
+      id: `cards-${currentCard.id}-${Date.now()}`,
+      at: Date.now(), mode: "cards" as ModeId, tense: currentCard.tense,
+      firstTryCorrect: currentCorrect, skipped: false,
+    }], Date.now()));
     setProgressStats((current) => ({
       answered: current.answered + 1,
       correct: current.correct + (currentCorrect ? 1 : 0),
@@ -1742,6 +1783,12 @@ export default function Home() {
         current.filter((card) => card.id !== currentCard.id),
       );
     }
+    return true;
+  };
+
+  const moveNext = () => {
+    if (selectedAnswer === null || !currentCard) return;
+    if (!commitCardAnswer()) return;
 
     if (cardIndex === deck.length - 1) {
       setScreen("result");
@@ -1755,8 +1802,92 @@ export default function Home() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  const resetSpotQuestion = () => {
+    setSpotStage("find");
+    setSpotFirstMistake(false);
+    setSpotErrorStage(undefined);
+    setSpotSelectedPart(null);
+    setSpotWrongOptions([]);
+    setSpotFeedback("");
+    setShowHint(false);
+    setSavedCurrent(false);
+  };
+
+  const chooseSpotPart = (index: number) => {
+    if (!currentSpot || spotStage !== "find") return;
+    if (currentSpot.isClean || index !== currentSpot.targetIndex) {
+      setSpotFirstMistake(true);
+      setSpotErrorStage((current) => current ?? "find");
+      setSpotFeedback("Пока не здесь. Посмотри на временные подсказки в ситуации и предложении.");
+      return;
+    }
+    setSpotSelectedPart(index);
+    setSpotFeedback("");
+    setSpotStage("replace");
+  };
+
+  const chooseNoError = () => {
+    if (!currentSpot || spotStage !== "find") return;
+    if (currentSpot.isClean) {
+      setSpotStage("revealed");
+      setSpotFeedback("");
+    } else {
+      setSpotFirstMistake(true);
+      setSpotErrorStage((current) => current ?? "find");
+      setSpotFeedback("В этом предложении всё-таки есть форма, которая не совпадает с контекстом.");
+    }
+  };
+
+  const chooseSpotReplacement = (option: string) => {
+    if (!currentSpot || spotStage !== "replace" || spotWrongOptions.includes(option)) return;
+    if (option === currentSpot.correctFragment) {
+      setSpotFeedback("");
+      setSpotStage("revealed");
+    } else {
+      setSpotFirstMistake(true);
+      setSpotErrorStage((current) => current ?? "replace");
+      setSpotWrongOptions((current) => [...current, option]);
+      setSpotFeedback("Этот вариант ещё не совпадает с историей. Сравни, когда происходит действие.");
+    }
+  };
+
+  const commitSpotAnswer = (skipped: boolean): boolean => {
+    if (!currentSpot) return false;
+    if (committedRoundIds.current.has(currentSpot.id)) return false;
+    committedRoundIds.current.add(currentSpot.id);
+    const correct = !skipped && !spotFirstMistake;
+    setSpotAnswers((current) => [...current, {
+      exercise: currentSpot, correct, skipped, errorStage: spotErrorStage, saved: savedCurrent,
+    }]);
+    setAttemptHistory((current) => trimAttemptHistory([...current, {
+      id: `spot-${currentSpot.id}-${Date.now()}`,
+      at: Date.now(), mode: "spot-error" as ModeId, tense: currentSpot.tense,
+      firstTryCorrect: correct, skipped, errorStage: spotErrorStage,
+    }], Date.now()));
+    setSpotReviewHistory((history) => recordReview(history, currentSpot, correct, savedCurrent, Date.now()));
+    return true;
+  };
+
+  const moveSpotNext = (skipped = false) => {
+    if (!currentSpot || (!skipped && spotStage !== "revealed")) return;
+    if (!commitSpotAnswer(skipped)) return;
+    if (cardIndex === spotDeck.length - 1) {
+      setScreen("result");
+    } else {
+      setCardIndex((current) => current + 1);
+      resetSpotQuestion();
+    }
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const goHome = () => {
+    if (["deck", "question", "spot"].includes(screen)) {
+      if (!window.confirm("Завершить партию? Уже пройденные задания сохранятся.")) return;
+      if (screen === "question" && selectedAnswer !== null) commitCardAnswer();
+      if (screen === "spot" && spotStage === "revealed") commitSpotAnswer(false);
+    }
     setScreen("home");
+    setWeekNow(Date.now());
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -1765,10 +1896,17 @@ export default function Home() {
   const lifetimeAccuracy = progressStats.answered
     ? Math.round((progressStats.correct / progressStats.answered) * 100)
     : 0;
+  const weekAttempts = recentAttempts(attemptHistory, weekNow);
+  const weekSummary = summarizeTenses(weekAttempts);
+  const weekAnswered = weekAttempts.filter((event) => !event.skipped).length;
+  const weekSkipped = weekAttempts.length - weekAnswered;
+  const weekConfident = weekSummary.filter((row) => row.status === "confident");
+  const weekSometimes = weekSummary.filter((row) => row.status === "sometimes");
+  const weekFocus = weekSummary.filter((row) => row.status === "focus");
 
-  if (screen === "home") {
+  if (screen === "home" || screen === "setup") {
     return (
-      <main className="home-shell">
+      <main className={`home-shell ${screen === "home" ? "mode-home" : "setup-home"}`}>
         <div className="ambient ambient-one" />
         <div className="ambient ambient-two" />
 
@@ -1812,17 +1950,17 @@ export default function Home() {
 
             <div className="calm-note">
               <span className="calm-line" />
-              No timer. No pressure. Just one card at a time.
+              No timer. No pressure. Just one moment at a time.
             </div>
 
             <div className="journey-card">
               <div className="journey-heading">
                 <div>
-                  <p className="step-label">Your journey</p>
+                  <p className="step-label">Режим карточек</p>
                   <strong>
                     {progressStats.answered
-                      ? "Практика уже складывается"
-                      : "Твой путь начнётся с первой карты"}
+                      ? "Практика с карточками уже складывается"
+                      : "Здесь пока нет открытых карт"}
                   </strong>
                 </div>
                 <span className="journey-orbit" aria-hidden="true" />
@@ -1842,9 +1980,64 @@ export default function Home() {
                 </div>
               </div>
             </div>
+            {screen === "home" && (
+              <div className="weekly-card">
+                <div className="weekly-heading">
+                  <div>
+                    <p className="step-label">Последние 7 дней</p>
+                    <h2>Твоя практика</h2>
+                  </div>
+                  <span>{weekAttempts.length} заданий</span>
+                </div>
+                {weekAttempts.length === 0 ? (
+                  <p className="weekly-empty">Сыграй первую партию — здесь появится подсказка, какие времена уже даются легко, а какие стоит повторить.</p>
+                ) : weekAnswered === 0 ? (
+                  <p className="weekly-empty">На этой неделе было {weekSkipped} пропусков. Ответов для анализа пока нет; пропуски не считаются ошибками.</p>
+                ) : (
+                  <>
+                    {weekSkipped > 0 && <p className="weekly-line">Ответов: {weekAnswered} · пропущено: {weekSkipped}. Пропуски не считаются ошибками.</p>}
+                    {weekConfident.length > 0 && <p className="weekly-line"><strong>Уверенно:</strong> {weekConfident.map((row) => getTenseLabel(row.tense)).join(", ")}</p>}
+                    {weekSometimes.length > 0 && <p className="weekly-line"><strong>Иногда путается:</strong> {weekSometimes.map((row) => getTenseLabel(row.tense)).join(", ")}</p>}
+                    {weekFocus.length > 0 && <p className="weekly-line"><strong>Стоит повторить:</strong> {weekFocus.map((row) => getTenseLabel(row.tense)).join(", ")}</p>}
+                    {!weekConfident.length && !weekSometimes.length && !weekFocus.length && <p className="weekly-line">Пока мало данных по каждому времени — продолжай в своём ритме.</p>}
+                    <details className="weekly-details">
+                      <summary>Все времена и результаты</summary>
+                      <div className="weekly-list">
+                        {weekSummary.map((row) => (
+                          <div key={row.tense}>
+                            <span>{getTenseLabel(row.tense)}</span>
+                            <strong>{row.correct} из {row.answered}</strong>
+                            <small>{row.status === "confident" ? "уверенно" : row.status === "focus" ? "стоит повторить" : row.status === "sometimes" ? "иногда путается" : "пока мало данных"}</small>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  </>
+                )}
+              </div>
+            )}
           </div>
 
+          {screen === "home" ? (
+            <div className="mode-panel">
+              <p className="step-label">Choose your practice</p>
+              <h2>Как потренируем времена сегодня?</h2>
+              <div className="mode-grid">
+                <button className="mode-tile is-ready" type="button" onClick={() => { setSelectedMode("cards"); setScreen("setup"); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
+                  <span className="mode-number">01 / The Reading</span><strong>Карточки</strong><span>Почувствуй время через ситуацию и выбери фразу, которая подходит лучше всего.</span><em>Играть ↗</em>
+                </button>
+                <button className="mode-tile is-ready" type="button" onClick={() => { setSelectedMode("spot-error"); setScreen("setup"); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
+                  <span className="mode-number">02 / The Edit</span><strong>Лови ошибку</strong><span>Найди сбившееся время и аккуратно исправь предложение.</span><em>Играть ↗</em>
+                </button>
+                <div className="mode-tile is-coming"><span className="mode-number">03 / The Line</span><strong>Таймлайн</strong><span>Разложи события по времени.</span><em>Скоро</em></div>
+                <div className="mode-tile is-coming"><span className="mode-number">04 / The Thought</span><strong>Переведи мысль</strong><span>Подбери форму для живой мысли.</span><em>Скоро</em></div>
+                <div className="mode-tile is-coming"><span className="mode-number">05 / The Mix</span><strong>Микс</strong><span>Несколько способов думать о времени в одной партии.</span><em>Скоро</em></div>
+              </div>
+            </div>
+          ) : (
           <div className="setup-panel">
+            <button className="setup-back" type="button" onClick={() => setScreen("home")}>← Все режимы</button>
+            <p className="setup-mode-name">{selectedMode === "cards" ? "01 / Карточки" : "02 / Лови ошибку"}</p>
             <div className="setup-heading">
               <div>
                 <p className="step-label">01 · Choose your focus</p>
@@ -1913,11 +2106,15 @@ export default function Home() {
             <div className="count-section">
               <div>
                 <p className="step-label">03 · Set your pace</p>
-                <h2>Сколько карт откроем?</h2>
+                <h2>{selectedMode === "cards" ? "Сколько карт откроем?" : "Сколько заданий разберём?"}</h2>
               </div>
               <div
                 className="number-picker"
+                role="spinbutton"
                 tabIndex={0}
+                aria-valuemin={5}
+                aria-valuemax={99}
+                aria-valuenow={cardCount}
                 onWheel={(event) => {
                   event.preventDefault();
                   setCardCount((current) =>
@@ -1932,11 +2129,11 @@ export default function Home() {
                     setCardCount((current) => Math.max(5, current - 1));
                   }
                 }}
-                aria-label={`Количество карт: ${cardCount}`}
+                aria-label={`${selectedMode === "cards" ? "Количество карт" : "Количество заданий"}: ${cardCount}`}
               >
                 <button
                   type="button"
-                  aria-label="Уменьшить количество карт"
+                  aria-label={`Уменьшить количество ${selectedMode === "cards" ? "карт" : "заданий"}`}
                   onClick={() => setCardCount((current) => Math.max(5, current - 1))}
                 >
                   −
@@ -1948,7 +2145,7 @@ export default function Home() {
                 </div>
                 <button
                   type="button"
-                  aria-label="Увеличить количество карт"
+                  aria-label={`Увеличить количество ${selectedMode === "cards" ? "карт" : "заданий"}`}
                   onClick={() => setCardCount((current) => Math.min(99, current + 1))}
                 >
                   +
@@ -1962,7 +2159,7 @@ export default function Home() {
               max="99"
               value={cardCount}
               onChange={(event) => setCardCount(Number(event.target.value))}
-              aria-label="Количество карточек от 5 до 99"
+              aria-label={`Количество ${selectedMode === "cards" ? "карточек" : "заданий"} от 5 до 99`}
             />
 
             <button
@@ -1985,14 +2182,53 @@ export default function Home() {
               <p className="validation-note">Выбери хотя бы одну тему.</p>
             )}
           </div>
+          )}
         </section>
       </main>
     );
   }
 
   if (screen === "result") {
-    const strongest = scoreByTense[0];
-    const needsPractice = scoreByTense[scoreByTense.length - 1];
+    if (selectedMode === "spot-error") {
+      const answered = spotAnswers.filter((answer) => !answer.skipped);
+      const correct = answered.filter((answer) => answer.correct).length;
+      const skipped = spotAnswers.length - answered.length;
+      const percentage = answered.length ? Math.round((correct / answered.length) * 100) : 0;
+      return (
+        <main className="game-shell result-shell">
+          <div className="ambient ambient-one" />
+          <GameHeader onHome={goHome} />
+          <section className="result-card">
+            <div className="result-symbol" aria-hidden="true"><span>{percentage}</span><small>%</small></div>
+            <p className="eyebrow">The edit is complete</p>
+            <h1>Все предложения разобраны</h1>
+            <p className="result-lead">Посмотри, какие времена уже узнаются легко, а какие стоит встретить ещё раз.</p>
+            <div className="result-stats">
+              <div><strong>{answered.length}</strong><span>ответов</span></div>
+              <div><strong>{correct}</strong><span>с первого раза</span></div>
+              <div><strong>{skipped}</strong><span>пропущено</span></div>
+            </div>
+            <SessionAnalysis
+              events={spotAnswers.map((answer, index) => ({
+                id: `${index}`, at: 0, mode: "spot-error", tense: answer.exercise.tense,
+                firstTryCorrect: answer.correct, skipped: answer.skipped, errorStage: answer.errorStage,
+              }))}
+              mistakes={spotAnswers.filter((answer) => !answer.correct && !answer.skipped).map((answer) => ({
+                id: answer.exercise.id,
+                original: answer.exercise.sentence,
+                corrected: answer.exercise.correctSentence,
+                explanation: answer.exercise.explanation,
+                detail: answer.exercise.isClean ? "Здесь ошибки не было." : answer.errorStage === "find" ? "Сначала было трудно найти фрагмент." : "Фрагмент найден, но замена потребовала ещё попытки.",
+              }))}
+            />
+            <div className="result-actions">
+              <button className="primary-action" type="button" onClick={startGame}>Ещё одна партия</button>
+              <button className="text-action" type="button" onClick={goHome}>Все режимы</button>
+            </div>
+          </section>
+        </main>
+      );
+    }
     const percentage = answers.length
       ? Math.round((completedCorrect / answers.length) * 100)
       : 0;
@@ -2031,24 +2267,19 @@ export default function Home() {
             </div>
           </div>
 
-          {strongest && needsPractice && (
-            <div className="tense-insights">
-              <div className="insight good">
-                <span>Feels natural</span>
-                <strong>{getTenseLabel(strongest[0])}</strong>
-                <small>
-                  {strongest[1].correct} of {strongest[1].total} best matches
-                </small>
-              </div>
-              <div className="insight practice">
-                <span>Explore again</span>
-                <strong>{getTenseLabel(needsPractice[0])}</strong>
-                <small>
-                  {needsPractice[1].correct} of {needsPractice[1].total} best matches
-                </small>
-              </div>
-            </div>
-          )}
+          <SessionAnalysis
+            events={answers.map((answer, index) => ({
+              id: `${index}`, at: 0, mode: "cards", tense: answer.card.tense,
+              firstTryCorrect: answer.correct, skipped: false,
+            }))}
+            mistakes={answers.filter((answer) => !answer.correct).map((answer) => ({
+              id: answer.card.id,
+              original: answer.card.options[answer.selectedIndex],
+              corrected: answer.card.options[answer.card.correctIndex],
+              explanation: answer.card.explanation,
+              detail: answer.card.situation,
+            }))}
+          />
 
           <div className="result-actions">
             <button className="primary-action" type="button" onClick={startGame}>
@@ -2058,6 +2289,77 @@ export default function Home() {
               Change settings
             </button>
           </div>
+        </section>
+      </main>
+    );
+  }
+
+  if (screen === "spot" && currentSpot) {
+    return (
+      <main className="game-shell spot-shell">
+        <div className="ambient ambient-one" />
+        <div className="ambient ambient-two" />
+        <GameHeader onHome={goHome} />
+        <div className="game-progress" aria-label={`Задание ${cardIndex + 1} из ${spotDeck.length}`}>
+          <div><span>Задание {String(cardIndex + 1).padStart(2, "0")}</span><span>из {String(spotDeck.length).padStart(2, "0")}</span></div>
+          <div className="progress-track"><div className="progress-fill" style={{ width: `${progress}%` }} /></div>
+        </div>
+        <section className="spot-board" data-exercise-id={currentSpot.id}>
+          <div className="spot-board-top"><span>02 / The Edit</span><span>{TOPICS.find((topic) => topic.id === currentSpot.topic)?.label}</span></div>
+          <p className="eyebrow">Найди сбившееся время</p>
+          <h1>{currentSpot.situation}</h1>
+          <p className="spot-instruction">{spotStage === "find" ? "Нажми на фрагмент, который кажется неверным. Если предложение уже верное — так и отметь." : spotStage === "replace" ? "Теперь выбери форму, которая подходит истории." : "Сравни две версии и прочитай объяснение."}</p>
+          <div className="spot-paper">
+            <span className="spot-paper-label">THE SENTENCE / {String(cardIndex + 1).padStart(2, "0")}</span>
+            <div className="spot-sentence" aria-label={currentSpot.sentence}>
+              {currentSpot.parts.map((part, index) => (
+                <button
+                  className={`spot-fragment ${spotSelectedPart === index ? "is-selected" : ""}`}
+                  type="button"
+                  key={`${index}-${part}`}
+                  disabled={spotStage !== "find"}
+                  onClick={() => chooseSpotPart(index)}
+                  aria-label={`Проверить фрагмент: ${part}`}
+                >{part}</button>
+              ))}
+            </div>
+          </div>
+          {spotStage !== "revealed" && (
+            <>
+              <div className="spot-tools">
+                <button className="hint-button" type="button" aria-expanded={showHint} onClick={() => setShowHint((current) => !current)}>
+                  <span>{showHint ? "Скрыть подсказку" : "Нужна подсказка?"}</span><span>{showHint ? "−" : "+"}</span>
+                </button>
+                {spotStage === "find" && <button className="spot-no-error" type="button" onClick={chooseNoError}>Ошибки нет</button>}
+              </div>
+              {showHint && <p className="hint-text">{currentSpot.hint}</p>}
+              {spotFeedback && <p className="spot-feedback" role="status">{spotFeedback}</p>}
+              {spotStage === "replace" && (
+                <div className="spot-replacements" aria-label="Варианты исправления">
+                  <p className="step-label">Подходящая замена</p>
+                  {currentSpot.options.map((option) => (
+                    <button className={`spot-replacement ${spotWrongOptions.includes(option) ? "is-tried" : ""}`} type="button" key={option} disabled={spotWrongOptions.includes(option)} onClick={() => chooseSpotReplacement(option)}>{option}<span>↗</span></button>
+                  ))}
+                </div>
+              )}
+              <button className="spot-skip" type="button" onClick={() => moveSpotNext(true)}>Пропустить вопрос →</button>
+            </>
+          )}
+          {spotStage === "revealed" && (
+            <div className="spot-reveal">
+              <p className="step-label">До → после</p>
+              {currentSpot.isClean ? <p className="spot-after">{currentSpot.sentence}</p> : (
+                <><p className="spot-before">{currentSpot.sentence}</p><p className="spot-after">{currentSpot.correctSentence}</p></>
+              )}
+              <p>{currentSpot.isClean ? "В этом предложении время уже подходило ситуации." : currentSpot.explanation}</p>
+              <div className="reveal-actions">
+                <button className={`save-button ${savedCurrent ? "is-saved" : ""}`} type="button" aria-pressed={savedCurrent} onClick={() => setSavedCurrent((current) => !current)}>
+                  <span>{savedCurrent ? "Saved to repeat" : "Repeat this later"}</span><span>{savedCurrent ? "✓" : "+"}</span>
+                </button>
+                <button className="next-button" type="button" onClick={() => moveSpotNext()}>{cardIndex === spotDeck.length - 1 ? "Посмотреть разбор" : "Следующее задание"}<span>→</span></button>
+              </div>
+            </div>
+          )}
         </section>
       </main>
     );
@@ -2220,8 +2522,41 @@ function GameHeader({ onHome }: { onHome: () => void }) {
         <span>Sense the Tense</span>
       </button>
       <button className="quiet-exit" type="button" onClick={onHome}>
-        Back to settings
+        В меню
       </button>
     </header>
+  );
+}
+
+type MistakeDetail = { id: string; original: string; corrected: string; explanation: string; detail: string };
+
+function SessionAnalysis({ events, mistakes }: { events: AttemptEvent[]; mistakes: MistakeDetail[] }) {
+  const rows = summarizeTenses(events, 3);
+  const strengths = rows.filter((row) => row.answered > 0 && row.correct === row.answered);
+  const practice = rows.filter((row) => row.answered > 0 && row.correct < row.answered)
+    .sort((a, b) => a.correct / a.answered - b.correct / b.answered);
+  const focus = practice.find((row) => row.answered >= 3);
+  const skipped = events.filter((event) => event.skipped).length;
+  return (
+    <div className="session-analysis">
+      <div className="analysis-title"><p className="step-label">Разбор партии</p><h2>Как ощущаются времена</h2></div>
+      {strengths.length > 0 && <p className="analysis-note"><strong>Без ошибок:</strong> {strengths.map((row) => `${getTenseLabel(row.tense)} (${row.correct}/${row.answered})`).join(", ")}.</p>}
+      {practice.length > 0 && <p className="analysis-note"><strong>Потренировать:</strong> {practice.map((row) => `${getTenseLabel(row.tense)} (${row.correct}/${row.answered})`).join(", ")}.</p>}
+      {focus && <p className="analysis-note"><strong>Чаще ошибки:</strong> {getTenseLabel(focus.tense)} — {focus.answered - focus.correct} из {focus.answered} ответов потребовали ещё попытки.</p>}
+      {!strengths.length && !practice.length && <p className="analysis-note">Пока нет ответов для анализа.</p>}
+      {rows.some((row) => row.answered > 0 && row.answered < 3) && <p className="analysis-caution">По некоторым временам пока мало ответов — это наблюдение за партией, не оценка знаний.</p>}
+      {skipped > 0 && <p className="analysis-caution">Пропущено: {skipped}. Эти задания не считаются ошибками и смогут вернуться позже.</p>}
+      <details className="mistake-details">
+        <summary>Посмотреть ошибки ({mistakes.length})</summary>
+        {mistakes.length ? mistakes.map((mistake, index) => (
+          <article className="mistake-item" key={`${mistake.id}-${index}`}>
+            <span>{mistake.detail}</span>
+            <p className="spot-before">{mistake.original}</p>
+            <p className="spot-after">{mistake.corrected}</p>
+            <small>{mistake.explanation}</small>
+          </article>
+        )) : <p className="analysis-note">В этой партии ошибок нет.</p>}
+      </details>
+    </div>
   );
 }
