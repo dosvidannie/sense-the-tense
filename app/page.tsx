@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { dueReviews, recordReview, type ReviewHistory } from "./review-schedule";
 
 type TenseId =
   | "present-simple"
@@ -1449,22 +1450,29 @@ function buildDeck(
   seenIds: string[],
   repeatQueue: Card[],
   serialState: SerialState,
+  reviewHistory: ReviewHistory<Card>,
+  now: number,
 ): { cards: DeckCard[]; nextSerialState: SerialState } {
   const tenseOrder = shuffle(tenseIds);
   const pools = new Map<TenseId, Card[]>();
   const seen = new Set(seenIds);
   const queuedIds = new Set(repeatQueue.map((card) => card.id));
   const nextSerialState = { ...serialState };
+  const reviewLimit = Math.max(1, Math.floor(count * 0.2));
+  const due = shuffle(dueReviews(reviewHistory, now))
+    .filter((record) => tenseIds.includes(record.card.tense))
+    .slice(0, reviewLimit)
+    .map((record) => record.card);
+  const dueIds = new Set(due.map((card) => card.id));
+  const reviewSlots = new Set(shuffle(Array.from({ length: count }, (_, index) => index)).slice(0, due.length));
 
   tenseOrder.forEach((tense) => {
-    const savedForTense = repeatQueue.filter(
-      (card) => card.tense === tense && !seen.has(card.id),
-    );
     const allowed = CARDS.filter(
       (card) =>
         card.tense === tense &&
         !seen.has(card.id) &&
-        !queuedIds.has(card.id),
+        !queuedIds.has(card.id) &&
+        !dueIds.has(card.id),
     );
     const preferred = shuffle(
       allowed.filter((card) => topicIds.includes(card.topic)),
@@ -1472,7 +1480,7 @@ function buildDeck(
     const remaining = shuffle(
       allowed.filter((card) => !topicIds.includes(card.topic)),
     );
-    pools.set(tense, [...shuffle(savedForTense), ...preferred, ...remaining]);
+    pools.set(tense, [...preferred, ...remaining]);
   });
 
   const deck: DeckCard[] = [];
@@ -1480,7 +1488,8 @@ function buildDeck(
   for (let index = 0; index < count; index += 1) {
     const tense = tenseOrder[index % tenseOrder.length];
     const pool = pools.get(tense) ?? [];
-    let card = pool.shift();
+    let card = reviewSlots.has(index) ? due.pop() : undefined;
+    if (!card) card = pool.shift();
 
     while (card && reservedIds.has(card.id)) {
       card = pool.shift();
@@ -1490,7 +1499,7 @@ function buildDeck(
       let serial = nextSerialState[tense] ?? 0;
       const topic = topicIds[Math.floor(index / tenseOrder.length) % topicIds.length];
       card = createGeneratedCard(tense, topic, serial);
-      while (seen.has(card.id) || reservedIds.has(card.id)) {
+      while (seen.has(card.id) || reviewHistory[card.id] || reservedIds.has(card.id)) {
         serial += 1;
         card = createGeneratedCard(tense, topic, serial);
       }
@@ -1523,6 +1532,7 @@ export default function Home() {
   const [savedCurrent, setSavedCurrent] = useState(false);
   const [seenCardIds, setSeenCardIds] = useState<string[]>([]);
   const [repeatQueue, setRepeatQueue] = useState<Card[]>([]);
+  const [reviewHistory, setReviewHistory] = useState<ReviewHistory<Card>>({});
   const [serialState, setSerialState] = useState<SerialState>({});
   const [drawIntros, setDrawIntros] = useState<string[]>([]);
   const [progressStats, setProgressStats] = useState<ProgressStats>({
@@ -1565,6 +1575,7 @@ export default function Home() {
         const progress = JSON.parse(savedProgress) as {
           seenCardIds?: string[];
           repeatQueue?: Card[];
+          reviewHistory?: ReviewHistory<Card>;
           serialState?: SerialState;
           stats?: ProgressStats;
         };
@@ -1573,6 +1584,17 @@ export default function Home() {
         }
         if (Array.isArray(progress.repeatQueue)) {
           setRepeatQueue(progress.repeatQueue);
+        }
+        if (progress.reviewHistory && typeof progress.reviewHistory === "object") {
+          setReviewHistory(progress.reviewHistory);
+        } else if (Array.isArray(progress.repeatQueue)) {
+          // Previous saves remain scheduled instead of becoming immediately playable.
+          const now = Date.now();
+          const migrated = progress.repeatQueue.reduce<ReviewHistory<Card>>(
+            (history, card) => recordReview(history, card, false, true, now),
+            {},
+          );
+          setReviewHistory(migrated);
         }
         if (progress.serialState && typeof progress.serialState === "object") {
           setSerialState(progress.serialState);
@@ -1610,6 +1632,7 @@ export default function Home() {
       JSON.stringify({
         seenCardIds,
         repeatQueue,
+        reviewHistory,
         serialState,
         stats: progressStats,
       }),
@@ -1617,6 +1640,7 @@ export default function Home() {
   }, [
     seenCardIds,
     repeatQueue,
+    reviewHistory,
     serialState,
     progressStats,
     settingsLoaded,
@@ -1661,6 +1685,8 @@ export default function Home() {
       seenCardIds,
       repeatQueue,
       serialState,
+      reviewHistory,
+      Date.now(),
     );
     setDeck(builtDeck.cards);
     setSerialState(builtDeck.nextSerialState);
@@ -1695,6 +1721,9 @@ export default function Home() {
     }));
 
     const storedCard = toStoredCard(currentCard);
+    setReviewHistory((history) =>
+      recordReview(history, storedCard, currentCorrect, savedCurrent, Date.now()),
+    );
     if (savedCurrent) {
       setSeenCardIds((current) =>
         current.filter((id) => id !== currentCard.id),
@@ -1728,29 +1757,6 @@ export default function Home() {
 
   const goHome = () => {
     setScreen("home");
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
-  const repeatSaved = () => {
-    const saved = answers.filter((answer) => answer.saved);
-    if (!saved.length) return;
-    const uniqueSaved = [
-      ...new Map(saved.map((answer) => [answer.card.id, answer.card])).values(),
-    ];
-    setDeck(
-      shuffle(
-        uniqueSaved.map((card, index) =>
-          shuffleCardOptions(card, `repeat-${index}-${Date.now()}`),
-        ),
-      ),
-    );
-    setDrawIntros(buildIntroSequence(uniqueSaved.length));
-    setCardIndex(0);
-    setSelectedAnswer(null);
-    setShowHint(false);
-    setAnswers([]);
-    setSavedCurrent(false);
-    setScreen("deck");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -2047,14 +2053,6 @@ export default function Home() {
           <div className="result-actions">
             <button className="primary-action" type="button" onClick={startGame}>
               Play the same mix
-            </button>
-            <button
-              className="secondary-action"
-              type="button"
-              onClick={repeatSaved}
-              disabled={!savedCount}
-            >
-              Repeat saved cards
             </button>
             <button className="text-action" type="button" onClick={goHome}>
               Change settings
